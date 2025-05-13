@@ -20,6 +20,9 @@ load_dotenv()
 
 # Connect to neo4j
 neo4j_uri = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
+# print( "Debug: ",str(neo4j_uri))
+neo4j_uri = "bolt://localhost:7687"
+print( "Debug: ",str(neo4j_uri))
 neo4j_user = os.environ.get('NEO4J_USER', 'neo4j')
 neo4j_password = os.environ.get('NEO4J_PASSWORD', 'password')
 if not neo4j_uri or not neo4j_user or not neo4j_password:
@@ -50,10 +53,11 @@ embedder_config = OpenAIEmbedderConfig(
 
 async def main():
     # Initialize Graphiti with Neo4j connection
+    print( "Debug: ",str(neo4j_uri))
     graphiti = Graphiti(
-        neo4j_uri,
-        neo4j_user,
-        neo4j_password,
+        uri=neo4j_uri,
+        user=neo4j_user,
+        password=neo4j_password,
         llm_client=OpenAIGenericClient(llm_config),
         embedder=OpenAIEmbedder(embedder_config),
         cross_encoder=OpenAIRerankerClient(llm_config)
