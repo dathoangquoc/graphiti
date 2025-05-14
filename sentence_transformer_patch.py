@@ -1,5 +1,5 @@
 import asyncio
-import numpy as np
+import logging
 from typing import List, Optional, Dict, Any
 from collections.abc import Iterable
 
@@ -22,6 +22,7 @@ class SentenceTransformerEmbedder(EmbedderClient):
         """Create embedding for a single piece of text."""
         # Run in an executor to avoid blocking the event loop
         embedding = await asyncio.to_thread(self.model.encode, input_data, convert_to_numpy=True)
+        
         # Convert numpy array to list for JSON serialization
         return embedding[:self.embedding_dim].tolist()
     

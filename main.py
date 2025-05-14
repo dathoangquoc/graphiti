@@ -43,18 +43,6 @@ embedder_config = LLMConfig(
     base_url=EMBEDDER_BASE_URL,
 )
 
-# Define Entity Types
-from pydantic import BaseModel, Field
-
-class Person(BaseModel):
-    name: str | None = Field(..., description="The name of the person")
-    
-class Place(BaseModel):
-    """A product or service offering"""
-    price: float | None  = Field(..., description="The price of the product or service")
-    category: str | None  = Field(..., description="The category of the product")
-
-
 async def main():
     # Initialize Graphiti with Neo4j connection
     graphiti = Graphiti(
