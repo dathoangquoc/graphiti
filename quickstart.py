@@ -1,23 +1,8 @@
-"""
-Copyright 2025, Zep Software, Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
 import asyncio
 import json
 import logging
 import os
+import aiohttp
 from datetime import datetime, timezone
 from logging import INFO
 
@@ -27,9 +12,10 @@ from graphiti_core import Graphiti
 from graphiti_core.nodes import EpisodeType
 from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 
-from graphiti_core.llm_client.gemini_client import GeminiClient, LLMConfig
-from graphiti_core.embedder.gemini import GeminiEmbedder, GeminiEmbedderConfig
-
+from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
+from graphiti_core.llm_client import LLMConfig
+from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
+from graphiti_core.cross_encoder import OpenAIRerankerClient
 
 #################################################
 # CONFIGURATION
@@ -50,39 +36,182 @@ load_dotenv()
 
 # Neo4j connection parameters
 # Make sure Neo4j Desktop is running with a local DBMS started
-neo4j_uri = os.environ.get('NEO4J_URI', 'neo4j://localhost:7687')
-neo4j_user = os.environ.get('NEO4J_USER', 'neo4j')
-neo4j_password = os.environ.get('NEO4J_PASSWORD', 'password')
-api_key = os.environ.get('GOOGLE_API_KEY')
+# neo4j configs
+NEO4J_URI = "bolt://localhost:7687"
+NEO4J_USER = "neo4j"
+NEO4J_PASSWORD = "password"
 
-if not neo4j_uri or not neo4j_user or not neo4j_password:
-    raise ValueError('NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD must be set')
+# LLM configs
+LLM_API_KEY = "dummy"
+LLM_BASE_URL = "http://localhost:11434/v1"
+LLM_MODEL = "llama3.2:1b"
 
+# Embedder configs
+EMBEDDER_API_KEY = "dummy"
+EMBEDDER_BASE_URL = "http://localhost:11434/v1"
+EMBEDDER_MODEL = "nomic-embed-text"
+
+SENTENCE_TRANSFORMER_MODEL = "all-MiniLM-L6-v2"
+EMBEDDING_DIM = 384
+
+"""
+A custom embedder implementation for Graphiti using the sentence-transformers library
+"""
+
+import numpy as np
+from typing import List, Union, Iterable
+from sentence_transformers import SentenceTransformer
+
+from graphiti_core.embedder import EmbedderClient
+
+
+class SentenceTransformersEmbedder(EmbedderClient):    
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2", embedding_dim: int = 384):
+        """
+        Initialize the SentenceTransformers embedder
+        
+        Args:
+            model_name: The name of the sentence-transformers model to use
+            embedding_dim: The dimension of the embeddings produced by the model
+        """
+        self.model = SentenceTransformer(model_name)
+        self.embedding_dim = embedding_dim
+    
+    async def create(
+        self, input_data: Union[str, List[str], Iterable[int], Iterable[Iterable[int]]]
+    ) -> List[float]:
+        """
+        Create embeddings for a single input
+        
+        Args:
+            input_data: The text to embed
+            
+        Returns:
+            A list of floats representing the embedding
+        """
+        if isinstance(input_data, str):
+            embedding = self.model.encode(input_data)
+            return embedding.tolist()
+        else:
+            # Handle other input types if needed
+            raise ValueError(f"Unsupported input type: {type(input_data)}")
+    
+    async def create_batch(self, input_data_list: List[str]) -> List[List[float]]:
+        """
+        Create embeddings for a batch of inputs
+        
+        Args:
+            input_data_list: A list of texts to embed
+            
+        Returns:
+            A list of embeddings, each a list of floats
+        """
+        embeddings = self.model.encode(input_data_list)
+        return embeddings.tolist()
+    
+class OllamaEmbedder(EmbedderClient):
+    """
+    An embedder client that uses the Ollama API for embeddings.
+    This is tailored specifically for the Ollama API format.
+    """
+    
+    def __init__(
+        self, 
+        api_key: str = "dummy", 
+        base_url: str = "http://localhost:11434/v1", 
+        model: str = "nomic-embed-text", 
+        embedding_dim: int = 384
+    ):
+        """
+        Initialize the Ollama embedder
+        
+        Args:
+            api_key: API key (not usually needed for local Ollama but kept for interface consistency)
+            base_url: Base URL for the Ollama API
+            model: Model name to use for embeddings
+            embedding_dim: The dimension of the embeddings produced by the model
+        """
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")  # Remove trailing slash if present
+        self.model = model
+        self.embedding_dim = embedding_dim
+    
+    async def create(
+        self, input_data: Union[str, List[str], Iterable[int], Iterable[Iterable[int]]]
+    ) -> List[float]:
+        """
+        Create embeddings for a single input using the Ollama API
+        
+        Args:
+            input_data: The text to embed
+            
+        Returns:
+            A list of floats representing the embedding
+        """
+        if isinstance(input_data, str):
+            async with aiohttp.ClientSession() as session:
+                payload = {
+                    "model": self.model,
+                    "prompt": input_data
+                }
+                
+                async with session.post(f"{self.base_url}/api/embeddings", json=payload) as response:
+                    if response.status != 200:
+                        text = await response.text()
+                        raise ValueError(f"Ollama API error: {response.status} - {text}")
+                    
+                    result = await response.json()
+                    # Ollama returns embeddings in a format like {"embedding": [...]}
+                    if "embedding" not in result:
+                        raise ValueError(f"Unexpected Ollama API response: {result}")
+                    
+                    return result["embedding"]
+        else:
+            # Handle other input types if needed
+            raise ValueError(f"Unsupported input type: {type(input_data)}")
+    
+    async def create_batch(self, input_data_list: List[str]) -> List[List[float]]:
+        """
+        Create embeddings for a batch of inputs using the Ollama API
+        
+        Args:
+            input_data_list: A list of texts to embed
+            
+        Returns:
+            A list of embeddings, each a list of floats
+        """
+        # Ollama API doesn't support batch processing directly
+        # So we process each input individually
+        embeddings = []
+        for input_data in input_data_list:
+            embedding = await self.create(input_data)
+            embeddings.append(embedding)
+        
+        return embeddings
 
 async def main():
-    #################################################
-    # INITIALIZATION
-    #################################################
-    # Connect to Neo4j and set up Graphiti indices
-    # This is required before using other Graphiti
-    # functionality
-    #################################################
 
     # Initialize Graphiti with Neo4j connection
     graphiti = Graphiti(
-        neo4j_uri,
-        neo4j_user,
-        neo4j_password,
-        llm_client=GeminiClient(
+        NEO4J_URI,
+        NEO4J_USER,
+        NEO4J_PASSWORD,
+        llm_client=OpenAIGenericClient(
             config=LLMConfig(
-                api_key=api_key,
-                model="gemini-2.0-flash"
+                api_key=LLM_API_KEY,
+                model=LLM_MODEL,
+                base_url=LLM_BASE_URL
             )
         ),
-        embedder=GeminiEmbedder(
-            config=GeminiEmbedderConfig(
-                api_key=api_key,
-                embedding_model="embedding-001"
+        embedder=SentenceTransformersEmbedder(
+            model_name=SENTENCE_TRANSFORMER_MODEL,
+            embedding_dim=EMBEDDING_DIM
+        ),
+        cross_encoder=OpenAIRerankerClient(
+            config=LLMConfig(
+            api_key=LLM_API_KEY,
+            model=LLM_MODEL,
+            base_url=LLM_BASE_URL
             )
         )
     )

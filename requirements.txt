@@ -1,3 +1,4 @@
 graphiti-core
 sentence-transformers
+aiohttp
 python-dotenv>=1.0.0
