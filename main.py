@@ -7,17 +7,16 @@ from graphiti_core import Graphiti
 from graphiti_core.nodes import EpisodeType
 from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 
-from graphiti_core.llm_client.gemini_client import GeminiClient
-from graphiti_core.embedder.gemini import GeminiEmbedder, GeminiEmbedderConfig
 
-from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
+from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
+from graphiti_core.cross_encoder import OpenAIRerankerClient
+from graphiti_core.llm_client.openai_client import OpenAIClient 
+
 from graphiti_core.llm_client import LLMConfig
 
 from pydantic import BaseModel, Field
 
 from sentence_transformer_patch import SentenceTransformerEmbedder, SentenceTransformerCrossEncoder
-
-logging.basicConfig(filename='debug.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # neo4j configs
 NEO4J_URI = "bolt://localhost:7687"
@@ -27,7 +26,7 @@ NEO4J_PASSWORD = "password"
 # LLM configs
 LLM_API_KEY = "dummy"
 LLM_BASE_URL = "http://localhost:11434/v1"
-LLM_MODEL = "llama3.2:3b"
+LLM_MODEL = "deepseek-r1:70b"
 
 # Embedder configs
 EMBEDDER_API_KEY = "dummy"
@@ -37,34 +36,36 @@ EMBEDDER_MODEL = "nomic-embed-text"
 SENTENCE_TRANSFORMER_MODEL = "all-MiniLM-L6-v2"
 EMBEDDING_DIM = 384
 
+# Logger
+logging.basicConfig(filename=f'debug_logs/query.log', level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-logger.critical(f"Current model {LLM_MODEL}: ") 
 
-llm_config = LLMConfig(
-    model=LLM_MODEL,
-    api_key=LLM_API_KEY,
-    base_url=LLM_BASE_URL
-)
 
-embedder_config = LLMConfig(
-    model=EMBEDDER_MODEL,
-    api_key=EMBEDDER_API_KEY,
-    base_url=EMBEDDER_BASE_URL,
-)
-
-gemini = GeminiClient(
-    config=LLMConfig(
-        api_key='dunnofam',
-        model="gemini-2.0-flash"
+ollama = OpenAIClient(
+    config = LLMConfig(
+        model=LLM_MODEL,
+        api_key=LLM_API_KEY,
+        base_url=LLM_BASE_URL
     )
 )
 
-gemini_emb = GeminiEmbedder(
-    config=GeminiEmbedderConfig(
-        api_key='dunnofam',
-        embedding_model='embedding-001'
+embedder = OpenAIEmbedder(
+    config=OpenAIEmbedderConfig(
+        embedding_dim=EMBEDDING_DIM,
+        embedding_model=EMBEDDER_MODEL,
+        api_key=EMBEDDER_API_KEY,
+        base_url=EMBEDDER_BASE_URL
     )
 )
+
+cross_encoder = OpenAIRerankerClient(
+    config = LLMConfig(
+        model=LLM_MODEL,
+        api_key=LLM_API_KEY,
+        base_url=LLM_BASE_URL
+    )
+)
+
 # # Entity Types
 # class Person(BaseModel):
 #     role: str | None = Field(..., description="The role of the person")
@@ -80,9 +81,9 @@ async def main():
         uri=NEO4J_URI,
         user=NEO4J_USER,
         password=NEO4J_PASSWORD,
-        llm_client=gemini,
-        embedder=gemini_emb,
-        cross_encoder=SentenceTransformerCrossEncoder(SENTENCE_TRANSFORMER_MODEL)
+        llm_client=ollama,
+        embedder=embedder,
+        cross_encoder=cross_encoder
     )
 
     try:
@@ -92,56 +93,56 @@ async def main():
         # Test data
         episodes = [
             {
-                'content': 'Kamala Harris is the Attorney General of California. She was previously '
-                'the district attorney for San Francisco.',
+                'content': '岸田文雄は日本の第100代内閣総理大臣である。それ以前は外務大臣を務めていた。',
                 'type': EpisodeType.text,
-                'description': 'podcast transcript',
+                'description': 'ポッドキャストの書き起こし',
             },
             {
-                'content': 'As AG, Harris was in office from January 3, 2011 – January 3, 2017',
+                'content': '外務大臣としての在任期間は2012年12月26日から2017年8月3日までだった。',
                 'type': EpisodeType.text,
-                'description': 'podcast transcript',
+                'description': 'ポッドキャストの書き起こし',
             },
             {
                 'content': {
-                    'name': 'Gavin Newsom',
-                    'position': 'Governor',
-                    'state': 'California',
-                    'previous_role': 'Lieutenant Governor',
-                    'previous_location': 'San Francisco',
+                    'name': '小池百合子',
+                    'position': '東京都知事',
+                    'previous_role': '環境大臣',
+                    'previous_location': '東京',
                 },
                 'type': EpisodeType.json,
-                'description': 'podcast metadata',
+                'description': 'ポッドキャストのメタデータ',
             },
             {
                 'content': {
-                    'name': 'Gavin Newsom',
-                    'position': 'Governor',
-                    'term_start': 'January 7, 2019',
-                    'term_end': 'Present',
+                    'name': '小池百合子',
+                    'position': '東京都知事',
+                    'term_start': '2016年7月31日',
+                    'term_end': '現在',
                 },
                 'type': EpisodeType.json,
-                'description': 'podcast metadata',
+                'description': 'ポッドキャストのメタデータ',
             },
         ]
 
+
         # Add episodes to the graph
-        for i, episode in enumerate(episodes):
-            print('Adding episode:', episode)
-            await graphiti.add_episode(
-                name=f'Freakonomics Radio {i}',
-                episode_body=episode['content']
-                if isinstance(episode['content'], str)
-                else json.dumps(episode['content']),
-                source=episode['type'],
-                source_description=episode['description'],
-                reference_time=datetime.now(timezone.utc),
-                # entity_types=entity_types
-            )
-            print(f'Added episode: Freakonomics Radio {i} ({episode["type"].value})')
+        # for i, episode in enumerate(episodes):
+        #     print('Adding episode:', episode)
+        #     await graphiti.add_episode(
+        #         name=f'Freakonomics Radio {i}',
+        #         episode_body=episode['content']
+        #         if isinstance(episode['content'], str)
+        #         else json.dumps(episode['content']),
+        #         source=episode['type'],
+        #         source_description=episode['description'],
+        #         reference_time=datetime.now(timezone.utc),
+        #         # entity_types=entity_types
+        #     )
+        #     print(f'Added episode: Freakonomics Radio {i} ({episode["type"].value})')
 
         # Perform a hybrid search combining semantic similarity and BM25 retrieval
-        query = "Who is Kamala Harris?"
+        # Implied: 岸田文雄は長く政治に関わってきた人物である。
+        query = "岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？"
         print(f"\nSearching for: {query}")
         results = await graphiti.search(query)
 
@@ -165,7 +166,7 @@ async def main():
             print(f'Using center node UUID: {center_node_uuid}')
 
             reranked_results = await graphiti.search(
-                'Who was the California Attorney General?', center_node_uuid=center_node_uuid
+                query=query, center_node_uuid=center_node_uuid
             )
 
             # Print reranked search results
