@@ -1,0 +1,167 @@
+2025-05-19 09:46:58,117 - WARNING - Query 岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？
+2025-05-19 09:57:21,614 - WARNING - Query 岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？
+2025-05-19 09:57:22,023 - WARNING - reranked_edges []
+2025-05-19 09:59:56,278 - WARNING - Query 岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？
+2025-05-19 09:59:56,392 - WARNING - search_results [[], [], []]
+2025-05-19 10:02:10,589 - WARNING - Query 岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？
+2025-05-19 10:02:10,722 - WARNING - records []
+2025-05-19 10:04:31,812 - WARNING - Query 岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？
+2025-05-19 10:04:31,924 - WARNING - fuzzy_query (岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？)
+2025-05-19 10:04:31,931 - WARNING - records []
+2025-05-19 10:22:03,464 - WARNING - Query 岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？
+2025-05-19 10:22:03,844 - WARNING - cypher_query 
+              CALL db.index.fulltext.queryRelationships("edge_name_and_fact", $query, {limit: $limit}) 
+              YIELD relationship AS rel, score
+              MATCH (:Entity)-[r:RELATES_TO]->(:Entity)
+              WHERE r.group_id IN $group_ids
+WITH r, score, startNode(r) AS n, endNode(r) AS m
+               RETURN
+                     r.uuid AS uuid,
+                     r.group_id AS group_id,
+                     n.uuid AS source_node_uuid,
+                     m.uuid AS target_node_uuid,
+                     r.created_at AS created_at,
+                     r.name AS name,
+                     r.fact AS fact,
+                     r.fact_embedding AS fact_embedding,
+                     r.episodes AS episodes,
+                     r.expired_at AS expired_at,
+                     r.valid_at AS valid_at,
+                     r.invalid_at AS invalid_at
+                 ORDER BY score DESC LIMIT $limit
+                 
+2025-05-19 10:22:03,844 - WARNING - filter_params {}
+2025-05-19 10:22:03,844 - WARNING - group_ids None
+2025-05-19 10:35:09,900 - WARNING - Query 岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？
+2025-05-19 10:36:13,670 - WARNING - Query 岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？
+2025-05-19 10:36:13,776 - WARNING - cypher_query 
+              CALL db.index.fulltext.queryRelationships("edge_name_and_fact", $query, {limit: $limit}) 
+              YIELD relationship AS rel, score
+              MATCH (:Entity)-[r:RELATES_TO]->(:Entity)
+              WHERE r.group_id IN $group_ids
+WITH r, score, startNode(r) AS n, endNode(r) AS m
+               RETURN
+                     r.uuid AS uuid,
+                     r.group_id AS group_id,
+                     n.uuid AS source_node_uuid,
+                     m.uuid AS target_node_uuid,
+                     r.created_at AS created_at,
+                     r.name AS name,
+                     r.fact AS fact,
+                     r.fact_embedding AS fact_embedding,
+                     r.episodes AS episodes,
+                     r.expired_at AS expired_at,
+                     r.valid_at AS valid_at,
+                     r.invalid_at AS invalid_at
+                 ORDER BY score DESC LIMIT $limit
+                 
+2025-05-19 10:37:30,494 - WARNING - Query 岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？
+2025-05-19 10:37:30,594 - WARNING - cypher_query 
+              CALL db.index.fulltext.queryRelationships("edge_name_and_fact", $query, {limit: $limit}) 
+              YIELD relationship AS rel, score
+              MATCH (:Entity)-[r:RELATES_TO]->(:Entity)
+              WHERE r.group_id IN $group_ids
+WITH r, score, startNode(r) AS n, endNode(r) AS m
+               RETURN
+                     r.uuid AS uuid,
+                     r.group_id AS group_id,
+                     n.uuid AS source_node_uuid,
+                     m.uuid AS target_node_uuid,
+                     r.created_at AS created_at,
+                     r.name AS name,
+                     r.fact AS fact,
+                     r.fact_embedding AS fact_embedding,
+                     r.episodes AS episodes,
+                     r.expired_at AS expired_at,
+                     r.valid_at AS valid_at,
+                     r.invalid_at AS invalid_at
+                 ORDER BY score DESC LIMIT $limit
+                 
+2025-05-19 10:37:52,607 - WARNING - Query 岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？
+2025-05-19 10:37:52,709 - WARNING - fuzzy_query (岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？)
+2025-05-19 10:44:53,378 - WARNING - edges records []
+2025-05-19 10:45:44,538 - WARNING - edges resum []
+2025-05-19 10:45:44,538 - WARNING - edges du ['uuid', 'group_id', 'source_node_uuid', 'target_node_uuid', 'created_at', 'name', 'fact', 'fact_embedding', 'episodes', 'expired_at', 'valid_at', 'invalid_at']
+2025-05-19 11:03:29,913 - WARNING - Transaction failed and will be retried in 1.1610522826711955s (Failed to read from defunct connection IPv4Address(('localhost', 7687)) (ResolvedIPv4Address(('127.0.0.1', 7687))))
+2025-05-19 11:05:21,088 - WARNING - Transaction failed and will be retried in 1.0480256189337243s (Failed to read from defunct connection IPv4Address(('localhost', 7687)) (ResolvedIPv4Address(('127.0.0.1', 7687))))
+2025-05-19 11:11:43,689 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "deepseek-r1:70b" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:11:43,689 - WARNING - Retrying after application error (attempt 1/2): Error code: 404 - {'error': {'message': 'model "deepseek-r1:70b" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:11:43,691 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "deepseek-r1:70b" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:11:43,691 - WARNING - Retrying after application error (attempt 2/2): Error code: 404 - {'error': {'message': 'model "deepseek-r1:70b" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:11:43,693 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "deepseek-r1:70b" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:11:43,693 - ERROR - Max retries (2) exceeded. Last error: Error code: 404 - {'error': {'message': 'model "deepseek-r1:70b" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,346 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,347 - WARNING - Retrying after application error (attempt 1/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,349 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,349 - WARNING - Retrying after application error (attempt 1/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,352 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,352 - WARNING - Retrying after application error (attempt 2/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,355 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,355 - WARNING - Retrying after application error (attempt 2/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,357 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,357 - ERROR - Max retries (2) exceeded. Last error: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,357 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:18:39,357 - ERROR - Max retries (2) exceeded. Last error: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,220 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,220 - WARNING - Retrying after application error (attempt 1/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,222 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,222 - WARNING - Retrying after application error (attempt 1/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,225 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,225 - WARNING - Retrying after application error (attempt 2/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,228 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,228 - WARNING - Retrying after application error (attempt 2/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,231 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,231 - ERROR - Max retries (2) exceeded. Last error: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,232 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:22:44,232 - ERROR - Max retries (2) exceeded. Last error: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:28:01,825 - WARNING - Request: [{'role': 'system', 'content': 'You are an AI assistant that extracts entity nodes from text. \n    Your primary task is to extract and classify the speaker and other significant entities mentioned in the provided text.\nDo not escape unicode characters.\n\n\nAny extracted information should be returned in the same language as it was written in.'}, {'role': 'user', 'content': '\n<TEXT>\n岸田文雄は日本の第100代内閣総理大臣である。それ以前は外務大臣を務めていた。\n</TEXT>\n<ENTITY TYPES>\n[{\'entity_type_id\': 0, \'entity_type_name\': \'Entity\', \'entity_type_description\': \'Default entity classification. Use this entity type if the entity is not one of the other listed types.\'}]\n</ENTITY TYPES>\n\nGiven the above text, extract entities from the TEXT that are explicitly or implicitly mentioned.\nFor each entity extracted, also determine its entity type based on the provided ENTITY TYPES and their descriptions.\nIndicate the classified entity type by providing its entity_type_id.\n\n\n\nGuidelines:\n1. Extract significant entities, concepts, or actors mentioned in the conversation.\n2. Avoid creating nodes for relationships or actions.\n3. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).\n4. Be as explicit as possible in your node names, using full names and avoiding abbreviations.\n\n\nRespond with a JSON object in the following format:\n\n{"$defs": {"ExtractedEntity": {"properties": {"name": {"description": "Name of the extracted entity", "title": "Name", "type": "string"}, "entity_type_id": {"description": "ID of the classified entity type. Must be one of the provided entity_type_id integers.", "title": "Entity Type Id", "type": "integer"}}, "required": ["name", "entity_type_id"], "title": "ExtractedEntity", "type": "object"}}, "properties": {"extracted_entities": {"description": "List of extracted entities", "items": {"$ref": "#/$defs/ExtractedEntity"}, "title": "Extracted Entities", "type": "array"}}, "required": ["extracted_entities"], "title": "ExtractedEntities", "type": "object"}'}]
+2025-05-19 11:29:09,089 - WARNING - Response: {"$defs": {"ExtractedEntity": {"properties": {"name": {"description": "Name of the extracted entity", "title": "Name", "type": "string"}, "entity_type_id": {"description": "ID of the classified entity type. Must be one of the provided entity_type_id integers.", "title": "Entity Type Id", "type": "integer"}}, "required": ["name", "entity_type_id"], "title": "ExtractedEntity", "type": "object"}}, "properties": {"extracted_entities": {"description": "List of extracted entities", "items": {"$ref": "#/$defs/ExtractedEntity"}, "title": "Extracted Entities", "type": "array"}}, "required": ["extracted_entities"], "title": "ExtractedEntities", "type": "object"}
+2025-05-19 11:29:23,143 - WARNING - Using model qwen3:8b
+2025-05-19 11:29:41,544 - WARNING - Using model qwen3:8b
+2025-05-19 11:30:57,933 - WARNING - Using model qwen3:8b
+2025-05-19 11:30:57,935 - WARNING - Using model qwen3:8b
+2025-05-19 11:30:57,936 - WARNING - Using model qwen3:8b
+2025-05-19 11:30:57,938 - WARNING - Using model gpt-4.1-nano
+2025-05-19 11:30:57,939 - WARNING - Using model gpt-4.1-nano
+2025-05-19 11:30:57,941 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:30:57,941 - WARNING - Retrying after application error (attempt 1/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:30:57,941 - WARNING - Using model gpt-4.1-nano
+2025-05-19 11:30:57,943 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:30:57,943 - WARNING - Retrying after application error (attempt 1/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:30:57,943 - WARNING - Using model gpt-4.1-nano
+2025-05-19 11:30:57,944 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:30:57,944 - WARNING - Retrying after application error (attempt 2/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:30:57,944 - WARNING - Using model gpt-4.1-nano
+2025-05-19 11:30:57,946 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:30:57,946 - WARNING - Retrying after application error (attempt 2/2): Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:30:57,946 - WARNING - Using model gpt-4.1-nano
+2025-05-19 11:30:57,948 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:30:57,948 - ERROR - Max retries (2) exceeded. Last error: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:30:57,948 - ERROR - Error in generating LLM response: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:30:57,948 - ERROR - Max retries (2) exceeded. Last error: Error code: 404 - {'error': {'message': 'model "gpt-4.1-nano" not found, try pulling it first', 'type': 'api_error', 'param': None, 'code': None}}
+2025-05-19 11:31:51,986 - WARNING - Using model qwen3:8b
+2025-05-19 11:32:15,595 - WARNING - Using model qwen3:8b
+2025-05-19 11:33:29,974 - WARNING - Using model qwen3:8b
+2025-05-19 11:33:29,975 - WARNING - Using model qwen3:8b
+2025-05-19 11:33:29,976 - WARNING - Using model qwen3:8b
+2025-05-19 11:33:29,978 - WARNING - Using model qwen3:8b
+2025-05-19 11:33:29,979 - WARNING - Using model qwen3:8b
+2025-05-19 11:34:50,435 - WARNING - Using model qwen3:8b
+2025-05-19 11:35:16,871 - WARNING - Using model qwen3:8b
+2025-05-19 11:36:16,268 - WARNING - Using model qwen3:8b
+2025-05-19 11:36:16,269 - WARNING - Using model qwen3:8b
+2025-05-19 11:36:16,270 - WARNING - Using model qwen3:8b
+2025-05-19 11:36:16,362 - WARNING - Using model qwen3:8b
+2025-05-19 11:37:10,718 - WARNING - Using model qwen3:8b
+2025-05-19 11:37:40,929 - WARNING - Using model qwen3:8b
+2025-05-19 11:38:49,522 - WARNING - Using model qwen3:8b
+2025-05-19 11:38:49,524 - WARNING - Using model qwen3:8b
+2025-05-19 11:38:49,525 - WARNING - Using model qwen3:8b
+2025-05-19 11:38:49,580 - WARNING - Using model qwen3:8b
+2025-05-19 11:38:49,582 - WARNING - Using model qwen3:8b
+2025-05-19 11:40:00,128 - WARNING - Using model qwen3:8b
+2025-05-19 11:40:20,451 - WARNING - Using model qwen3:8b
+2025-05-19 11:41:24,557 - WARNING - Using model qwen3:8b
+2025-05-19 11:41:24,558 - WARNING - Using model qwen3:8b
+2025-05-19 11:41:24,623 - WARNING - Using model qwen3:8b
+2025-05-19 11:41:24,626 - WARNING - Using model qwen3:8b

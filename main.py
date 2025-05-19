@@ -1,22 +1,25 @@
 import asyncio
 import json
+import os
 from datetime import datetime, timezone
 import logging 
 
 from graphiti_core import Graphiti
 from graphiti_core.nodes import EpisodeType
-from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 
-
-from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
-from graphiti_core.cross_encoder import OpenAIRerankerClient
-from graphiti_core.llm_client.openai_client import OpenAIClient 
+from graphiti_core.llm_client.openai_client import OpenAIClient
+from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
 
 from graphiti_core.llm_client import LLMConfig
 
+from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
+from graphiti_core.cross_encoder import OpenAIRerankerClient
+
+from graphiti_core.search.search_config import SearchConfig
+from graphiti_core.search.search_config_recipes import COMBINED_HYBRID_SEARCH_RRF
+
 from pydantic import BaseModel, Field
 
-from sentence_transformer_patch import SentenceTransformerEmbedder, SentenceTransformerCrossEncoder
 
 # neo4j configs
 NEO4J_URI = "bolt://localhost:7687"
@@ -26,18 +29,19 @@ NEO4J_PASSWORD = "password"
 # LLM configs
 LLM_API_KEY = "dummy"
 LLM_BASE_URL = "http://localhost:11434/v1"
-LLM_MODEL = "deepseek-r1:70b"
+LLM_MODEL = "qwen3:8b"
 
 # Embedder configs
 EMBEDDER_API_KEY = "dummy"
 EMBEDDER_BASE_URL = "http://localhost:11434/v1"
 EMBEDDER_MODEL = "nomic-embed-text"
-
-SENTENCE_TRANSFORMER_MODEL = "all-MiniLM-L6-v2"
 EMBEDDING_DIM = 384
 
+SENTENCE_TRANSFORMER_MODEL = "all-MiniLM-L6-v2"
+
+
 # Logger
-logging.basicConfig(filename=f'debug_logs/query.log', level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename=f'debug_logs/search.log', level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -45,14 +49,15 @@ ollama = OpenAIClient(
     config = LLMConfig(
         model=LLM_MODEL,
         api_key=LLM_API_KEY,
-        base_url=LLM_BASE_URL
+        base_url=LLM_BASE_URL,
+        small_model=LLM_MODEL
     )
 )
 
 embedder = OpenAIEmbedder(
     config=OpenAIEmbedderConfig(
-        embedding_dim=EMBEDDING_DIM,
         embedding_model=EMBEDDER_MODEL,
+        embedding_dim=EMBEDDING_DIM,
         api_key=EMBEDDER_API_KEY,
         base_url=EMBEDDER_BASE_URL
     )
@@ -129,6 +134,7 @@ async def main():
         # for i, episode in enumerate(episodes):
         #     print('Adding episode:', episode)
         #     await graphiti.add_episode(
+        #         group_id=f'group{i}',
         #         name=f'Freakonomics Radio {i}',
         #         episode_body=episode['content']
         #         if isinstance(episode['content'], str)
@@ -144,7 +150,10 @@ async def main():
         # Implied: 岸田文雄は長く政治に関わってきた人物である。
         query = "岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？"
         print(f"\nSearching for: {query}")
-        results = await graphiti.search(query)
+        results = await graphiti.search(
+            query=query,
+            group_ids=['group1','group2','group3','group0']
+        )
 
         # Print search results
         print('\nSearch Results:')
@@ -158,29 +167,29 @@ async def main():
             print('---')
         
         # Use the top search result's UUID as the center node for reranking
-        if results and len(results) > 0:
-            # Get the source node UUID from the top result
-            center_node_uuid = results[0].source_node_uuid
+        # if results and len(results) > 0:
+        #     # Get the source node UUID from the top result
+        #     center_node_uuid = results[0].source_node_uuid
 
-            print('\nReranking search results based on graph distance:')
-            print(f'Using center node UUID: {center_node_uuid}')
+        #     print('\nReranking search results based on graph distance:')
+        #     print(f'Using center node UUID: {center_node_uuid}')
 
-            reranked_results = await graphiti.search(
-                query=query, center_node_uuid=center_node_uuid
-            )
+        #     reranked_results = await graphiti.search(
+        #         query=query, center_node_uuid=center_node_uuid
+        #     )
 
-            # Print reranked search results
-            print('\nReranked Search Results:')
-            for result in reranked_results:
-                print(f'UUID: {result.uuid}')
-                print(f'Fact: {result.fact}')
-                if hasattr(result, 'valid_at') and result.valid_at:
-                    print(f'Valid from: {result.valid_at}')
-                if hasattr(result, 'invalid_at') and result.invalid_at:
-                    print(f'Valid until: {result.invalid_at}')
-                print('---')
-        else:
-            print('No results found in the initial search to use as center node.')
+        #     # Print reranked search results
+        #     print('\nReranked Search Results:')
+        #     for result in reranked_results:
+        #         print(f'UUID: {result.uuid}')
+        #         print(f'Fact: {result.fact}')
+        #         if hasattr(result, 'valid_at') and result.valid_at:
+        #             print(f'Valid from: {result.valid_at}')
+        #         if hasattr(result, 'invalid_at') and result.invalid_at:
+        #             print(f'Valid until: {result.invalid_at}')
+        #         print('---')
+        # else:
+        #     print('No results found in the initial search to use as center node.')
 
     finally:
         await graphiti.close()
