@@ -96,25 +96,25 @@ async def main():
         # Initialize the graph db with graphiti's indices
         await graphiti.build_indices_and_constraints()
 
-        doc_name = 'Quản Lý Tài Chính'
+        doc_name = 'Những kiến thức khoa học kỳ thú, không có trong sách vở'
         doc = Document(f'data/{doc_name}.docx')
 
         # Add episodes to the graph
-        for i, episode in enumerate(doc.paragraphs):
-            if isinstance(episode.text, str) and len(episode.text) > 0:
-                print(f"Adding {episode.text}")
-                await graphiti.add_episode(
-                    name=f'{doc_name} {i}',
-                    episode_body=episode.text,
-                    source=EpisodeType.text,
-                    group_id=doc_name,
-                    source_description='article about a finance',
-                    reference_time=datetime.now(timezone.utc),
-                )
-                print(f'Added episode {i}')
+        # for i, episode in enumerate(doc.paragraphs):
+        #     if isinstance(episode.text, str) and len(episode.text) > 0:
+        #         print(f"Adding {episode.text}")
+        #         await graphiti.add_episode(
+        #             name=f'{doc_name} {i}',
+        #             episode_body=episode.text,
+        #             source=EpisodeType.text,
+        #             group_id=doc_name,  # CANNOT SEARCH WITHOUT GROUP ID
+        #             source_description='article about science',
+        #             reference_time=datetime.now(timezone.utc),
+        #         )
+        #         print(f'Added paragraph {i}')
         
         # Perform a hybrid search combining semantic similarity and BM25 retrieval
-        query = "Nguyên tắc của quản trị tài chính?"
+        query = 'Magnus'
         print(f"\nSearching for: {query}")
         results = await graphiti.search(
             query=query,
