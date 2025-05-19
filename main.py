@@ -112,9 +112,20 @@ async def main():
         #             reference_time=datetime.now(timezone.utc),
         #         )
         #         print(f'Added paragraph {i}')
+
+        # Update graph
+        # await graphiti.add_episode(
+        #     name='wikipedia',
+        #     episode_body='Hiệu ứng Magnus là hiện tượng vật lý thường liên quan đến một vật thể quay chuyển động qua chất lưu. Hiện tượng này được nhà vật lý người Đức Heinrich Gustav Magnus (1802-1870) nghiên cứu vào năm 1852.',
+        #     source=EpisodeType.text,
+        #     source_description='wikipedia page',
+        #     group_id='wikipedia',
+        #     reference_time=datetime.now()
+        # )
+        # print('Updated Graph')
         
         # Perform a hybrid search combining semantic similarity and BM25 retrieval
-        query = 'Magnus'
+        query = 'Hiệu ứng Magnus'
         print(f"\nSearching for: {query}")
         results = await graphiti.search(
             query=query,
