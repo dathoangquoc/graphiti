@@ -1,14 +1,17 @@
 import asyncio
-import json
-import os
 from datetime import datetime, timezone
 import logging 
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv(override=True)  # Override VSCode path encoding ":" into "\x3a"
+
 from graphiti_core import Graphiti
 from graphiti_core.nodes import EpisodeType
+from graphiti_core.utils.bulk_utils import RawEpisode
 
 from graphiti_core.llm_client.openai_client import OpenAIClient
-from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
 
 from graphiti_core.llm_client import LLMConfig
 
@@ -19,29 +22,27 @@ from graphiti_core.search.search_config import SearchConfig
 from graphiti_core.search.search_config_recipes import COMBINED_HYBRID_SEARCH_RRF
 
 from pydantic import BaseModel, Field
+from docx import Document
 
 
 # neo4j configs
-NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "password"
+NEO4J_URI = os.environ.get('NEO4J_URI', "bolt://localhost:7687") 
+NEO4J_USER = os.environ.get('NEO4J_USER', "neo4j")
+NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD', "password")
 
 # LLM configs
-LLM_API_KEY = "dummy"
-LLM_BASE_URL = "http://localhost:11434/v1"
-LLM_MODEL = "qwen3:8b"
+LLM_API_KEY = os.environ.get('LLM_API_KEY', "dummy")
+LLM_BASE_URL = os.environ.get('LLM_BASE_URL', "http://localhost:11434/v1")
+LLM_MODEL = os.environ.get('LLM_MODEL' , "qwen3:8b")
 
 # Embedder configs
-EMBEDDER_API_KEY = "dummy"
-EMBEDDER_BASE_URL = "http://localhost:11434/v1"
-EMBEDDER_MODEL = "nomic-embed-text"
-EMBEDDING_DIM = 384
-
-SENTENCE_TRANSFORMER_MODEL = "all-MiniLM-L6-v2"
-
+EMBEDDER_API_KEY = os.environ.get('EMBEDDER_API_KEY', "dummy")
+EMBEDDER_BASE_URL = os.environ.get("EMBEDDER_BASE_URL", "http://localhost:11434/v1")
+EMBEDDER_MODEL = os.environ.get('EMBEDDER_MODEL', "nomic-embed-text")
+EMBEDDING_DIM = os.environ.get('EMBEDDING_DIM', 384)
 
 # Logger
-logging.basicConfig(filename=f'debug_logs/search.log', level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
+# logging.basicConfig(filename=f'debug_logs/search.log', level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -95,64 +96,29 @@ async def main():
         # Initialize the graph db with graphiti's indices
         await graphiti.build_indices_and_constraints()
 
+        doc_name = 'Các đợt El Niño liên tiếp đang xảy ra thường xuyên hơn'
+        doc = Document(f'data/{doc_name}.docx')
+
         # Test data
         episodes = [
-            {
-                'content': '岸田文雄は日本の第100代内閣総理大臣である。それ以前は外務大臣を務めていた。',
-                'type': EpisodeType.text,
-                'description': 'ポッドキャストの書き起こし',
-            },
-            {
-                'content': '外務大臣としての在任期間は2012年12月26日から2017年8月3日までだった。',
-                'type': EpisodeType.text,
-                'description': 'ポッドキャストの書き起こし',
-            },
-            {
-                'content': {
-                    'name': '小池百合子',
-                    'position': '東京都知事',
-                    'previous_role': '環境大臣',
-                    'previous_location': '東京',
-                },
-                'type': EpisodeType.json,
-                'description': 'ポッドキャストのメタデータ',
-            },
-            {
-                'content': {
-                    'name': '小池百合子',
-                    'position': '東京都知事',
-                    'term_start': '2016年7月31日',
-                    'term_end': '現在',
-                },
-                'type': EpisodeType.json,
-                'description': 'ポッドキャストのメタデータ',
-            },
+            RawEpisode(
+                name=f'Doc',
+                content=paragraph,
+                source=EpisodeType.text,
+                source_description='Article about a weather phenomenon',
+                reference_time=datetime.now(),
+            )
+            for paragraph in doc.paragraphs
         ]
 
-
-        # Add episodes to the graph
-        # for i, episode in enumerate(episodes):
-        #     print('Adding episode:', episode)
-        #     await graphiti.add_episode(
-        #         group_id=f'group{i}',
-        #         name=f'Freakonomics Radio {i}',
-        #         episode_body=episode['content']
-        #         if isinstance(episode['content'], str)
-        #         else json.dumps(episode['content']),
-        #         source=episode['type'],
-        #         source_description=episode['description'],
-        #         reference_time=datetime.now(timezone.utc),
-        #         # entity_types=entity_types
-        #     )
-        #     print(f'Added episode: Freakonomics Radio {i} ({episode["type"].value})')
+        await graphiti.add_episode_bulk(episodes)
 
         # Perform a hybrid search combining semantic similarity and BM25 retrieval
-        # Implied: 岸田文雄は長く政治に関わってきた人物である。
-        query = "岸田文雄さんは総理になる前、どのような政治的経験を積んでいたのでしょうか？"
+        query = "What kind of damage does El Nino do?"
         print(f"\nSearching for: {query}")
         results = await graphiti.search(
             query=query,
-            group_ids=['group1','group2','group3','group0']
+            group_ids=[]
         )
 
         # Print search results
@@ -167,29 +133,29 @@ async def main():
             print('---')
         
         # Use the top search result's UUID as the center node for reranking
-        # if results and len(results) > 0:
-        #     # Get the source node UUID from the top result
-        #     center_node_uuid = results[0].source_node_uuid
+        if results and len(results) > 0:
+            # Get the source node UUID from the top result
+            center_node_uuid = results[0].source_node_uuid
 
-        #     print('\nReranking search results based on graph distance:')
-        #     print(f'Using center node UUID: {center_node_uuid}')
+            print('\nReranking search results based on graph distance:')
+            print(f'Using center node UUID: {center_node_uuid}')
 
-        #     reranked_results = await graphiti.search(
-        #         query=query, center_node_uuid=center_node_uuid
-        #     )
+            reranked_results = await graphiti.search(
+                query=query, center_node_uuid=center_node_uuid
+            )
 
-        #     # Print reranked search results
-        #     print('\nReranked Search Results:')
-        #     for result in reranked_results:
-        #         print(f'UUID: {result.uuid}')
-        #         print(f'Fact: {result.fact}')
-        #         if hasattr(result, 'valid_at') and result.valid_at:
-        #             print(f'Valid from: {result.valid_at}')
-        #         if hasattr(result, 'invalid_at') and result.invalid_at:
-        #             print(f'Valid until: {result.invalid_at}')
-        #         print('---')
-        # else:
-        #     print('No results found in the initial search to use as center node.')
+            # Print reranked search results
+            print('\nReranked Search Results:')
+            for result in reranked_results:
+                print(f'UUID: {result.uuid}')
+                print(f'Fact: {result.fact}')
+                if hasattr(result, 'valid_at') and result.valid_at:
+                    print(f'Valid from: {result.valid_at}')
+                if hasattr(result, 'invalid_at') and result.invalid_at:
+                    print(f'Valid until: {result.invalid_at}')
+                print('---')
+        else:
+            print('No results found in the initial search to use as center node.')
 
     finally:
         await graphiti.close()
