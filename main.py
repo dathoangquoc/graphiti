@@ -30,7 +30,7 @@ from docx import Document
 # LangChain
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_openai.embeddings import OpenAIEmbeddings
-from langchain_community.document_loaders import UnstructuredWordDocumentLoader, DirectoryLoader
+from langchain_ollama import OllamaEmbeddings
 
 
 # neo4j configs
@@ -81,29 +81,29 @@ cross_encoder = OpenAIRerankerClient(
 
 # Entity Types
 class Person(BaseModel):
-    name: str = Field(..., description="Full name of the person")
+    person_name: str = Field(..., description="Full name of the person")
     role: Optional[str] = Field(None, description="The role or title of the person")
     birth_date: Optional[date] = Field(None, description="Date of birth")
     email: Optional[str] = Field(None, description="Email address")
 
 class Place(BaseModel):
-    name: str = Field(..., description="Name of the place")
+    place_name: str = Field(..., description="Name of the place")
     location: Optional[str] = Field(None, description="Geographic location or address")
     country: Optional[str] = Field(None, description="Country of the place")
     coordinates: Optional[tuple[float, float]] = Field(None, description="Latitude and longitude coordinates")
 
 class Organization(BaseModel):
-    name: str = Field(..., description="Name of the organization")
+    organization_name: str = Field(..., description="Name of the organization")
     type: Optional[str] = Field(None, description="Type of organization (e.g., university, company)")
     location: Optional[str] = Field(None, description="Geographic location or address")
 
 class Event(BaseModel):
-    name: str = Field(..., description="Name of the event")
+    event_name: str = Field(..., description="Name of the event")
     event_date: Optional[date] = Field(None, description="Date of the event")
     location: Optional[str] = Field(None, description="Location where the event takes place")
 
 class Concept(BaseModel):
-    name: str = Field(..., description="Name of the concept or term")
+    concept_name: str = Field(..., description="Name of the concept or term")
     definition: Optional[str] = Field(None, description="Definition or explanation")
 
 entity_types = {
@@ -114,42 +114,105 @@ entity_types = {
     "Concept": Concept,
 }
 
-def load_chunks(path: str):
-    loader = DirectoryLoader(
-        path=path,
-        glob="**/*.docx",
-        loader_cls=UnstructuredWordDocumentLoader,
-    )
+def load_docx_files_from_dir(directory: str):
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith(".docx"):
+                file_path = os.path.join(root, file)
+                file_name = os.path.basename(file_path)
+                print(f"Loading file: {file_path}")
+                doc = Document(file_path)
+                
+                content = []
+                for para in doc.paragraphs:
+                    text = para.text.strip()
+                    if isinstance(text, str) and len(text) > 1:
+                        content.append(text)
+                
+                yield file_name, content
 
-    chunker = SemanticChunker(OpenAIEmbeddings(
-        api_key=EMBEDDER_API_KEY,
-        base_url=EMBEDDER_BASE_URL,
+def load_chunks(path: str):
+    chunker = SemanticChunker(OllamaEmbeddings(
+        base_url='http://localhost:11434/',
         model=EMBEDDER_MODEL,
-        dimensions=EMBEDDING_DIM
         ), breakpoint_threshold_type="interquartile")
     
-    docs = loader.lazy_load()
-
-    for doc in docs:
-        file_path = doc.metadata.get("source", "unknown")
-        chunks = chunker.split_text(doc.page_content)
-        yield file_path, chunks
+    for file_name, content in load_docx_files_from_dir(path):
+        chunks = chunker.create_documents(content)
+        yield file_name, chunks
 
 async def add_episodes(graphiti: Graphiti, path: str):
-    file_path, chunks = load_chunks(path=path)    
+    for file_name, chunks in load_chunks(path=path):        
+        # Add episodes to the graph
+        for i, episode in enumerate(chunks):
+            episode_text = episode.page_content
+            if isinstance(episode_text, str) and len(episode_text) > 0:
+                print(f"Adding {episode}")
+                await graphiti.add_episode(
+                    name=f'{file_name} {i}',
+                    episode_body=episode_text,
+                    source=EpisodeType.text,
+                    source_description='Word Document',
+                    group_id=file_name,  # CANNOT SEARCH WITHOUT GROUP ID
+                    reference_time=datetime.now(timezone.utc),
+                    entity_types=entity_types
+                )
+                print(f'Added {i}')
+            else:
+                print('Error adding episode: ', episode)
+
+
+async def add_episodes_bulk(graphiti: Graphiti, path: str):
+    """Process multiple episodes from documents in bulk."""
+    try:
+        # Collect all episodes in a list
+        all_episodes = []
+        
+        # Track document sources for debugging
+        source_counts = {}
+        
+        for file_name, chunks in load_chunks(path=path):
+            source_counts[file_name] = len(chunks)
+            print(f"Found {len(chunks)} chunks in {file_name}")
+            
+            for i, chunk in enumerate(chunks):
+                # Extract the text from the Document object
+                if hasattr(chunk, 'page_content'):
+                    episode_text = chunk.page_content
+                else:
+                    # Fallback approach if page_content doesn't exist
+                    episode_text = str(chunk)
+                
+                if episode_text and len(episode_text) > 0:
+                    # Create a RawEpisode object
+                    episode = RawEpisode(
+                        name=f'{file_name}_{i}',
+                        source=EpisodeType.text,
+                        content=episode_text,
+                        source_description='Word Document',
+                        reference_time=datetime.now(timezone.utc)
+                    )
+                    all_episodes.append(episode)
+        
+        if not all_episodes:
+            print("No valid episodes found to add.")
+            return
+        
+        print(f"Preparing to add {len(all_episodes)} episodes in bulk")
+        print(f"Document sources: {source_counts}")
+        
+        # Process all episodes in bulk
+        group_id = '0'
+        await graphiti.add_episode_bulk(all_episodes, group_id=group_id)
+        
+        print(f"Successfully added {len(all_episodes)} episodes in bulk with group_id: {group_id}")
     
-    # Add episodes to the graph
-    for i, episode in enumerate(chunks):
-        if isinstance(episode, str) and len(episode) > 0:
-            print(f"Adding {episode}")
-            await graphiti.add_episode(
-                name=f'{file_path} {i}',
-                episode_body=episode,
-                source=EpisodeType.text,
-                group_id=file_path,  # CANNOT SEARCH WITHOUT GROUP ID
-                reference_time=datetime.now(timezone.utc),
-            )
-            print(f'Added {i}')
+    except Exception as e:
+        print(f"Error in bulk episode processing: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise e
+    
 
 async def main():
     # Initialize Graphiti with Neo4j connection
@@ -166,25 +229,11 @@ async def main():
         # Initialize the graph db with graphiti's indices
         await graphiti.build_indices_and_constraints()
 
-        loader = DirectoryLoader(
-        path='./data/',
-        glob="**/*.docx",
-        loader_cls=UnstructuredWordDocumentLoader,
-        )
+        # Add episodes in bulk
+        # await add_episodes_bulk(graphiti, './data/')  # NON FUNCTIONAL
 
-        # Add docx in bulk
-        for file_path, chunks in load_chunks('./data/'):
-            for chunk in chunks:
-                print(f'Adding {chunk}')
-                await graphiti.add_episode_bulk(
-                    RawEpisode(
-                        name=file_path,
-                        content=chunk,
-                        source=EpisodeType.text,
-                        reference_time=datetime.now()
-                    ),
-                    group_id="0"
-                )
+        # Add each episode
+        await add_episodes(graphiti, './data/')
 
         # # Update graph
         # await graphiti.add_episode(
