@@ -24,7 +24,6 @@ from graphiti_core.search.search_config_recipes import COMBINED_HYBRID_SEARCH_RR
 
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import date
 from docx import Document
 
 # LangChain
@@ -81,29 +80,22 @@ cross_encoder = OpenAIRerankerClient(
 
 # Entity Types
 class Person(BaseModel):
-    person_name: str = Field(..., description="Full name of the person")
     role: Optional[str] = Field(None, description="The role or title of the person")
-    birth_date: Optional[date] = Field(None, description="Date of birth")
-    email: Optional[str] = Field(None, description="Email address")
 
 class Place(BaseModel):
-    place_name: str = Field(..., description="Name of the place")
     location: Optional[str] = Field(None, description="Geographic location or address")
     country: Optional[str] = Field(None, description="Country of the place")
     coordinates: Optional[tuple[float, float]] = Field(None, description="Latitude and longitude coordinates")
 
 class Organization(BaseModel):
-    organization_name: str = Field(..., description="Name of the organization")
     type: Optional[str] = Field(None, description="Type of organization (e.g., university, company)")
     location: Optional[str] = Field(None, description="Geographic location or address")
 
 class Event(BaseModel):
-    event_name: str = Field(..., description="Name of the event")
-    event_date: Optional[date] = Field(None, description="Date of the event")
+    date: Optional[str] = Field(None, description="Date of the event")
     location: Optional[str] = Field(None, description="Location where the event takes place")
 
 class Concept(BaseModel):
-    concept_name: str = Field(..., description="Name of the concept or term")
     definition: Optional[str] = Field(None, description="Definition or explanation")
 
 entity_types = {
@@ -134,8 +126,11 @@ def load_docx_files_from_dir(directory: str):
 def load_chunks(path: str):
     chunker = SemanticChunker(OllamaEmbeddings(
         base_url='http://localhost:11434/',
-        model=EMBEDDER_MODEL,
-        ), breakpoint_threshold_type="interquartile")
+        model=EMBEDDER_MODEL),
+        breakpoint_threshold_type="percentile",
+        breakpoint_threshold_amount=70,
+        min_chunk_size=5
+        )
     
     for file_name, content in load_docx_files_from_dir(path):
         chunks = chunker.create_documents(content)
