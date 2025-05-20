@@ -1,4 +1,4 @@
-python-docx
+docx2txt
 python-dotenv
 
 # Graphiti

@@ -24,7 +24,7 @@ from graphiti_core.search.search_config_recipes import COMBINED_HYBRID_SEARCH_RR
 
 from pydantic import BaseModel, Field
 from typing import Optional
-from docx import Document
+import docx2txt
 
 # LangChain
 from langchain_experimental.text_splitter import SemanticChunker
@@ -113,27 +113,26 @@ def load_docx_files_from_dir(directory: str):
                 file_path = os.path.join(root, file)
                 file_name = os.path.basename(file_path)
                 print(f"Loading file: {file_path}")
-                doc = Document(file_path)
                 
-                content = []
-                for para in doc.paragraphs:
-                    text = para.text.strip()
-                    if isinstance(text, str) and len(text) > 1:
-                        content.append(text)
-                
-                yield file_name, content
+                try:
+                    # Extract text using docx2txt
+                    content = docx2txt.process(file_path)
+                    
+                    yield file_name, content
+                except Exception as e:
+                    print(f"Error processing {file_path}: {e}")
 
 def load_chunks(path: str):
     chunker = SemanticChunker(OllamaEmbeddings(
         base_url='http://localhost:11434/',
         model=EMBEDDER_MODEL),
         breakpoint_threshold_type="percentile",
-        breakpoint_threshold_amount=70,
-        min_chunk_size=5
+        breakpoint_threshold_amount=50,
+        min_chunk_size=30
         )
     
     for file_name, content in load_docx_files_from_dir(path):
-        chunks = chunker.create_documents(content)
+        chunks = chunker.create_documents([content])
         yield file_name, chunks
 
 async def add_episodes(graphiti: Graphiti, path: str):
@@ -155,59 +154,6 @@ async def add_episodes(graphiti: Graphiti, path: str):
                 print(f'Added {i}')
             else:
                 print('Error adding episode: ', episode)
-
-
-async def add_episodes_bulk(graphiti: Graphiti, path: str):
-    """Process multiple episodes from documents in bulk."""
-    try:
-        # Collect all episodes in a list
-        all_episodes = []
-        
-        # Track document sources for debugging
-        source_counts = {}
-        
-        for file_name, chunks in load_chunks(path=path):
-            source_counts[file_name] = len(chunks)
-            print(f"Found {len(chunks)} chunks in {file_name}")
-            
-            for i, chunk in enumerate(chunks):
-                # Extract the text from the Document object
-                if hasattr(chunk, 'page_content'):
-                    episode_text = chunk.page_content
-                else:
-                    # Fallback approach if page_content doesn't exist
-                    episode_text = str(chunk)
-                
-                if episode_text and len(episode_text) > 0:
-                    # Create a RawEpisode object
-                    episode = RawEpisode(
-                        name=f'{file_name}_{i}',
-                        source=EpisodeType.text,
-                        content=episode_text,
-                        source_description='Word Document',
-                        reference_time=datetime.now(timezone.utc)
-                    )
-                    all_episodes.append(episode)
-        
-        if not all_episodes:
-            print("No valid episodes found to add.")
-            return
-        
-        print(f"Preparing to add {len(all_episodes)} episodes in bulk")
-        print(f"Document sources: {source_counts}")
-        
-        # Process all episodes in bulk
-        group_id = '0'
-        await graphiti.add_episode_bulk(all_episodes, group_id=group_id)
-        
-        print(f"Successfully added {len(all_episodes)} episodes in bulk with group_id: {group_id}")
-    
-    except Exception as e:
-        print(f"Error in bulk episode processing: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise e
-    
 
 async def main():
     # Initialize Graphiti with Neo4j connection
