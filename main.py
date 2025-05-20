@@ -57,7 +57,8 @@ ollama = OpenAIClient(
         model=LLM_MODEL,
         api_key=LLM_API_KEY,
         base_url=LLM_BASE_URL,
-        small_model=LLM_MODEL
+        small_model=LLM_MODEL,
+        max_tokens=12000
     )
 )
 
@@ -127,8 +128,8 @@ def load_chunks(path: str):
         base_url='http://localhost:11434/',
         model=EMBEDDER_MODEL),
         breakpoint_threshold_type="percentile",
-        breakpoint_threshold_amount=50,
-        min_chunk_size=30
+        breakpoint_threshold_amount=30,
+        min_chunk_size=10
         )
     
     for file_name, content in load_docx_files_from_dir(path):
@@ -141,7 +142,7 @@ async def add_episodes(graphiti: Graphiti, path: str):
         for i, episode in enumerate(chunks):
             episode_text = episode.page_content
             if isinstance(episode_text, str) and len(episode_text) > 0:
-                print(f"Adding {episode}")
+                print(f"Adding {episode_text}")
                 await graphiti.add_episode(
                     name=f'{file_name} {i}',
                     episode_body=episode_text,
@@ -154,6 +155,60 @@ async def add_episodes(graphiti: Graphiti, path: str):
                 print(f'Added {i}')
             else:
                 print('Error adding episode: ', episode)
+
+async def add_episodes_bulk(graphiti: Graphiti, path: str):
+    """Process multiple episodes from documents in bulk."""
+    import os
+    from datetime import datetime, timezone
+    
+    try:
+        # Collect all episodes in a list
+        all_episodes = []
+        
+        # Track document sources for debugging
+        source_counts = {}
+        
+        for file_name, chunks in load_chunks(path=path):
+            source_counts[file_name] = len(chunks)
+            print(f"Found {len(chunks)} chunks in {file_name}")
+            
+            for i, chunk in enumerate(chunks):
+                # Extract the text from the Document object
+                if hasattr(chunk, 'page_content'):
+                    episode_text = chunk.page_content
+                else:
+                    # Fallback approach if page_content doesn't exist
+                    episode_text = str(chunk)
+                
+                if episode_text and len(episode_text) > 0:
+                    # Create a RawEpisode object
+                    episode = RawEpisode(
+                        name=f'{file_name}_{i}',
+                        source=EpisodeType.text,
+                        content=episode_text,
+                        source_description='Word Document',
+                        reference_time=datetime.now(timezone.utc)
+                    )
+                    all_episodes.append(episode)
+        
+        if not all_episodes:
+            print("No valid episodes found to add.")
+            return
+        
+        print(f"Preparing to add {len(all_episodes)} episodes in bulk")
+        print(f"Document sources: {source_counts}")
+        
+        # Process all episodes in bulk
+        group_id = f"bulk_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        await graphiti.add_episode_bulk(all_episodes, group_id=group_id)
+        
+        print(f"Successfully added {len(all_episodes)} episodes in bulk with group_id: {group_id}")
+    
+    except Exception as e:
+        print(f"Error in bulk episode processing: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise e
 
 async def main():
     # Initialize Graphiti with Neo4j connection
@@ -171,10 +226,10 @@ async def main():
         await graphiti.build_indices_and_constraints()
 
         # Add episodes in bulk
-        # await add_episodes_bulk(graphiti, './data/')  # NON FUNCTIONAL
+        await add_episodes_bulk(graphiti, './data/')  # NON FUNCTIONAL
 
         # Add each episode
-        await add_episodes(graphiti, './data/')
+        # await add_episodes(graphiti, './data/')
 
         # # Update graph
         # await graphiti.add_episode(
