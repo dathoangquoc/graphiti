@@ -1,3 +1,11 @@
-graphiti-core
-python-dotenv
 python-docx
+python-dotenv
+
+# Graphiti
+graphiti-core
+
+# LangChain
+unstructured
+langchain_experimental
+langchain_community
+langchain_openai
