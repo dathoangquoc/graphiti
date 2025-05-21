@@ -1,8 +1,9 @@
 import asyncio
 from datetime import datetime, timezone
 import logging 
-
+import time
 import os
+import json
 from dotenv import load_dotenv
 
 load_dotenv(override=True)  # Override VSCode path encoding ":" into "\x3a"
@@ -49,7 +50,7 @@ EMBEDDER_MODEL = os.environ.get('EMBEDDER_MODEL', "nomic-embed-text")
 EMBEDDING_DIM = os.environ.get('EMBEDDING_DIM', 384)
 
 # Logger
-# logging.basicConfig(filename=f'debug_logs/search.log', level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename=f'benchmark.log', level=logging.CRITICAL, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 ollama = OpenAIClient(
@@ -107,6 +108,15 @@ entity_types = {
     "Concept": Concept,
 }
 
+def load_docx_file(file_path: str):
+    try:
+        file_name = os.path.basename(file_path)
+        content = docx2txt.process(file_path)
+        content = content.strip()
+        yield file_name, content
+    except Exception as e:
+        print(f"Error processing {file_path}: {e}")
+
 def load_docx_files_from_dir(directory: str):
     for root, _, files in os.walk(directory):
         for file in files:
@@ -118,10 +128,28 @@ def load_docx_files_from_dir(directory: str):
                 try:
                     # Extract text using docx2txt
                     content = docx2txt.process(file_path)
-                    
+                    content = content.strip()
                     yield file_name, content
                 except Exception as e:
                     print(f"Error processing {file_path}: {e}")
+
+def process_docx(path: str):
+    """
+    Processes a given path. If it's a DOCX file, it processes that file.
+    If it's a directory, it processes all DOCX files within that directory.
+    """
+    if os.path.isfile(path):
+        if path.endswith(".docx"):
+            print(f"Processing single DOCX file: {path}")
+            yield from load_docx_file(path)
+        else:
+            print(f"Skipping {path}: Not a DOCX file.")
+    elif os.path.isdir(path):
+        print(f"Processing DOCX files in directory: {path}")
+        yield from load_docx_files_from_dir(path)
+    else:
+        print(f"Path does not exist or is not a file/directory: {path}")
+
 
 def load_chunks(path: str):
     chunker = SemanticChunker(OllamaEmbeddings(
@@ -132,17 +160,21 @@ def load_chunks(path: str):
         min_chunk_size=10
         )
     
-    for file_name, content in load_docx_files_from_dir(path):
+    for file_name, content in process_docx(path):
         chunks = chunker.create_documents([content])
         yield file_name, chunks
 
 async def add_episodes(graphiti: Graphiti, path: str):
-    for file_name, chunks in load_chunks(path=path):        
+    for file_name, chunks in load_chunks(path=path):
+        logger.critical(
+            f"Current File: '{file_name}'"
+        )
+        doc_start = time.perf_counter()
         # Add episodes to the graph
         for i, episode in enumerate(chunks):
             episode_text = episode.page_content
             if isinstance(episode_text, str) and len(episode_text) > 0:
-                print(f"Adding {episode_text}")
+                start = time.perf_counter()
                 await graphiti.add_episode(
                     name=f'{file_name} {i}',
                     episode_body=episode_text,
@@ -152,9 +184,18 @@ async def add_episodes(graphiti: Graphiti, path: str):
                     reference_time=datetime.now(timezone.utc),
                     entity_types=entity_types
                 )
-                print(f'Added {i}')
+                end = time.perf_counter()
+                execution_time = end - start
+                logger.critical(
+                    f"[added_episode] Index: {i}, Size: {len(episode_text)}, Time: {execution_time:.6f}s"
+                )
             else:
                 print('Error adding episode: ', episode)
+        doc_end = time.perf_counter()
+        doc_execution_time = doc_end - doc_start
+        logger.critical(
+            f"[added_document] File: '{file_name}', Time: {doc_execution_time:.6f}s "
+        )
 
 async def add_episodes_bulk(graphiti: Graphiti, path: str):
     """Process multiple episodes from documents in bulk."""
@@ -226,10 +267,10 @@ async def main():
         await graphiti.build_indices_and_constraints()
 
         # Add episodes in bulk
-        await add_episodes_bulk(graphiti, './data/')  # NON FUNCTIONAL
+        # await add_episodes_bulk(graphiti, './data/')  # NON FUNCTIONAL/
 
         # Add each episode
-        # await add_episodes(graphiti, './data/')
+        await add_episodes(graphiti, './data/Ghi nhớ cái lạnh.docx')
 
         # # Update graph
         # await graphiti.add_episode(
@@ -242,12 +283,34 @@ async def main():
         # )
         # print('Updated Graph')
         
-        # Perform a hybrid search combining semantic similarity and BM25 retrieval
-        query = 'Sự thật về  mặt trời'
-        print(f"\nSearching for: {query}")
+        # ENTITY QUERY
+        entity_query = 'Ivan Pavlov'
+        print(f"\nSearching for: {entity_query}")
+
+        start = time.perf_counter()
         results = await graphiti.search(
-            query=query,
-            group_ids=["0"]
+            query=entity_query,
+            group_ids=["Ghi nhớ cái lạnh"]
+        )
+        end = time.perf_counter()
+        execution_time = end - start
+        logger.critical(
+            f"[entity_query] Query: '{entity_query}', Top Result: {results[0].fact}, Time: {execution_time:.6f}s "
+        )
+
+        # TEMPORAL QUERY
+        temporal_query = '1897'
+        print(f"\nSearching for: {temporal_query}")
+
+        start = time.perf_counter()
+        results = await graphiti.search(
+            query=temporal_query,
+            group_ids=["Ghi nhớ cái lạnh"]
+        )
+        end = time.perf_counter()
+        execution_time = end - start
+        logger.critical(
+            f"[temporal_query] Query: '{temporal_query}', Top Result: {results[0].fact}, Time: {execution_time:.6f}s "
         )
 
         # Print search results
@@ -261,27 +324,6 @@ async def main():
                 print(f'Valid until: {result.invalid_at}')
             print('---')
         
-        # Use the top search result's UUID as the center node for reranking
-        if results and len(results) > 0:
-            # Get the source node UUID from the top result
-            center_node_uuid = results[0].source_node_uuid
-
-            print('\nReranking search results based on graph distance:')
-            reranked_results = await graphiti.search(
-                query=query, center_node_uuid=center_node_uuid
-            )
-
-            # Print reranked search results
-            print('\nReranked Search Results:')
-            for result in reranked_results:
-                print(f'Fact: {result.fact}')
-                if hasattr(result, 'valid_at') and result.valid_at:
-                    print(f'Valid from: {result.valid_at}')
-                if hasattr(result, 'invalid_at') and result.invalid_at:
-                    print(f'Valid until: {result.invalid_at}')
-                print('---')
-        else:
-            print('No results found in the initial search to use as center node.')
 
     finally:
         await graphiti.close()
