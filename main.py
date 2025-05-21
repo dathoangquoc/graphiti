@@ -59,7 +59,7 @@ ollama = OpenAIClient(
         api_key=LLM_API_KEY,
         base_url=LLM_BASE_URL,
         small_model=LLM_MODEL,
-        max_tokens=12000
+        max_tokens=8000
     )
 )
 
@@ -150,19 +150,42 @@ def process_docx(path: str):
     else:
         print(f"Path does not exist or is not a file/directory: {path}")
 
-
 def load_chunks(path: str):
     chunker = SemanticChunker(OllamaEmbeddings(
         base_url='http://localhost:11434/',
         model=EMBEDDER_MODEL),
         breakpoint_threshold_type="percentile",
-        breakpoint_threshold_amount=30,
-        min_chunk_size=10
+        breakpoint_threshold_amount=20,
+        min_chunk_size=10,
         )
     
     for file_name, content in process_docx(path):
         chunks = chunker.create_documents([content])
         yield file_name, chunks
+
+async def run_entity_queries(graphiti, queries, group_id):
+    for entity_query in queries:
+        print(f"\nSearching for: {entity_query}")
+
+        start = time.perf_counter()
+        results = await graphiti.search(
+            query=entity_query,
+            group_ids=[group_id]
+        )
+        end = time.perf_counter()
+        execution_time = end - start
+
+        if results:
+            result_facts = '\n'.join(result.fact for result in results)
+        else:
+            result_facts = 'No result found'
+
+        log_output = (
+            f"[entity_query] Query: '{entity_query}', "
+            f"Time: {execution_time:.6f}s \nResults:\n{result_facts}"
+        )
+        logger.critical(log_output)
+
 
 async def add_episodes(graphiti: Graphiti, path: str):
     for file_name, chunks in load_chunks(path=path):
@@ -173,6 +196,7 @@ async def add_episodes(graphiti: Graphiti, path: str):
         # Add episodes to the graph
         for i, episode in enumerate(chunks):
             episode_text = episode.page_content
+            print("Adding", episode_text)
             if isinstance(episode_text, str) and len(episode_text) > 0:
                 start = time.perf_counter()
                 await graphiti.add_episode(
@@ -269,8 +293,10 @@ async def main():
         # Add episodes in bulk
         # await add_episodes_bulk(graphiti, './data/')  # NON FUNCTIONAL/
 
+        doc = 'Ghi nhớ cái lạnh.docx'
+
         # Add each episode
-        await add_episodes(graphiti, './data/Ghi nhớ cái lạnh.docx')
+        # await add_episodes(graphiti, f'./data/{doc}')
 
         # # Update graph
         # await graphiti.add_episode(
@@ -284,46 +310,8 @@ async def main():
         # print('Updated Graph')
         
         # ENTITY QUERY
-        entity_query = 'Ivan Pavlov'
-        print(f"\nSearching for: {entity_query}")
-
-        start = time.perf_counter()
-        results = await graphiti.search(
-            query=entity_query,
-            group_ids=["Ghi nhớ cái lạnh"]
-        )
-        end = time.perf_counter()
-        execution_time = end - start
-        logger.critical(
-            f"[entity_query] Query: '{entity_query}', Top Result: {results[0].fact}, Time: {execution_time:.6f}s "
-        )
-
-        # TEMPORAL QUERY
-        temporal_query = '1897'
-        print(f"\nSearching for: {temporal_query}")
-
-        start = time.perf_counter()
-        results = await graphiti.search(
-            query=temporal_query,
-            group_ids=["Ghi nhớ cái lạnh"]
-        )
-        end = time.perf_counter()
-        execution_time = end - start
-        logger.critical(
-            f"[temporal_query] Query: '{temporal_query}', Top Result: {results[0].fact}, Time: {execution_time:.6f}s "
-        )
-
-        # Print search results
-        print('\nSearch Results:')
-        for result in results:
-            print(f'UUID: {result.uuid}')
-            print(f'Fact: {result.fact}')
-            if hasattr(result, 'valid_at') and result.valid_at:
-                print(f'Valid from: {result.valid_at}')
-            if hasattr(result, 'invalid_at') and result.invalid_at:
-                print(f'Valid until: {result.invalid_at}')
-            print('---')
-        
+        queries = ['nhà sinh lý học Ivan Pavlov', 'các tế bào engram lạnh', 'các bệnh rối loạn']
+        await run_entity_queries(graphiti, queries, doc)
 
     finally:
         await graphiti.close()
