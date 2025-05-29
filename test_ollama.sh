@@ -1,4 +1,4 @@
-curl http://localhost:11434/v1/chat/completions \
+curl http://216.98.85.189:3641/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "llama3.2:3b",

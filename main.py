@@ -21,7 +21,7 @@ from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
 from graphiti_core.cross_encoder import OpenAIRerankerClient
 
 from graphiti_core.search.search_config import SearchConfig
-from graphiti_core.search.search_config_recipes import COMBINED_HYBRID_SEARCH_RRF
+from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -50,7 +50,7 @@ EMBEDDER_MODEL = os.environ.get('EMBEDDER_MODEL', "nomic-embed-text")
 EMBEDDING_DIM = os.environ.get('EMBEDDING_DIM', 384)
 
 # Logger
-logging.basicConfig(filename=f'benchmark.log', level=logging.CRITICAL, format='%(asctime)s - %(message)s')
+logging.basicConfig(filename=f'search.log', level=logging.CRITICAL, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 ollama = OpenAIClient(
@@ -76,7 +76,8 @@ cross_encoder = OpenAIRerankerClient(
     config = LLMConfig(
         model=LLM_MODEL,
         api_key=LLM_API_KEY,
-        base_url=LLM_BASE_URL
+        base_url=LLM_BASE_URL,
+        small_model=LLM_MODEL
     )
 )
 
@@ -100,7 +101,7 @@ class Event(BaseModel):
 class Concept(BaseModel):
     definition: Optional[str] = Field(None, description="Definition or explanation")
 
-entity_types = {
+entity_types = {    
     "Person": Person,
     "Place": Place,
     "Organization": Organization,
@@ -168,15 +169,16 @@ async def run_entity_queries(graphiti, queries, group_id):
         print(f"\nSearching for: {entity_query}")
 
         start = time.perf_counter()
-        results = await graphiti.search(
+        results = await graphiti.search_(
             query=entity_query,
-            group_ids=[group_id]
+            group_ids=[group_id],
+            config=NODE_HYBRID_SEARCH_RRF
         )
         end = time.perf_counter()
         execution_time = end - start
 
         if results:
-            result_facts = '\n'.join(result.fact for result in results)
+            result_facts = '\n'.join(f"{node}" for node in results.nodes)
         else:
             result_facts = 'No result found'
 
@@ -310,8 +312,8 @@ async def main():
         # print('Updated Graph')
         
         # ENTITY QUERY
-        queries = ['nhà sinh lý học Ivan Pavlov', 'các tế bào engram lạnh', 'các bệnh rối loạn']
-        await run_entity_queries(graphiti, queries, doc)
+        await run_entity_queries(graphiti, ['What was Tomás Ryan research about?'], group_id=doc)
+
 
     finally:
         await graphiti.close()
